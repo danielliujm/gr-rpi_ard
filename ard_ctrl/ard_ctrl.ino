@@ -9,10 +9,10 @@ double PH_2 = 2.0;
 double ORP_1 = 3.0;
 double ORP_2 = 4.0;
 
-int PH1_ADDR;
-int PH2_ADDR;
-int ORP1_ADDR;
-int ORP2_ADDR;
+byte PH1_ADDR;
+byte PH2_ADDR;
+byte ORP1_ADDR;
+byte ORP2_ADDR;
 
 
 int prev_time; 

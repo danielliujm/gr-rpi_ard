@@ -97,7 +97,9 @@ output table
 ```
 ### Conversion of TMP sensor reading 
 The TMP sensor reading outputs 4-20mA where 4mA corresponds to -15 psig and 20mA corresponds to +60 psig. The current passes through a 270 $\Omega$ resistor, so the current output gets mapped to 1.08V - 5.4V. To convert from voltage reading (V) back to pressure (P), use:
-$$ P = ({{V*1000}\over{270}}-4)*{{75}\over{16}}+(-15)$$
+```math 
+P = ({{V*1000}\over{270}}-4)*{{75}\over{16}}+(-15)
+```
 
 
 

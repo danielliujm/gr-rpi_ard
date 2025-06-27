@@ -20,8 +20,10 @@ NUM_TMP = 6
 NUM_PH = 2
 NUM_ORP = 2 
 
+TMP_V_OFFSET = 0.0
+
 # Write header row
-csv_writer.writerow(["Timestamp", *[f"TMP{i+1}" for i in range(NUM_TMP)],
+csv_writer.writerow(["Timestamp", *[f"TMP(kpa) {i+1}" for i in range(NUM_TMP)],
                      *[f"PH{i+1}" for i in range(NUM_PH)],
                      *[f"ORP{i+1}" for i in range(NUM_ORP)],
                      *[f"Motor{i+1}" for i in range(PWM_CHANNELS)]])
@@ -58,7 +60,7 @@ def read_serial():
                 data = json.loads(line)
                 if "TMP_data" in data:
                     for i in range( len(data["TMP_data"])):
-                        TMP_values[i].set(data["TMP_data"][i])
+                        TMP_values[i].set((data["TMP_data"][i]*5/1023.0 - TMP_V_OFFSET))
                 if "PH_data" in data:
                     for i in range(len(data["PH_data"])):
                         PH_values[i].set(data["PH_data"][i])

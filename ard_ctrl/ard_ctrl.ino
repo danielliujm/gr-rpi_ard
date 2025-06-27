@@ -1,5 +1,6 @@
 #include <ArduinoJson.h>
 #include <Wire.h>
+#include <comm_.h>
 
 
 
@@ -9,14 +10,15 @@ double PH_2 = 2.0;
 double ORP_1 = 3.0;
 double ORP_2 = 4.0;
 
-byte PH1_ADDR;
-byte PH2_ADDR;
-byte ORP1_ADDR;
-byte ORP2_ADDR;
+uint8_t PH1_ADDR = 0x65;
+uint8_t PH2_ADDR = 0x67;
+uint8_t ORP1_ADDR = 0x66;
+uint8_t ORP2_ADDR = 0x68;
+
 
 
 int prev_time; 
-int SAVE_INTERVAL = 5000;
+int SAVE_INTERVAL = 180000;
 
 void setup() {
   Serial.begin(9600);
@@ -24,8 +26,20 @@ void setup() {
     pinMode(motorPins[i], OUTPUT);
   }
 
-  prev_time = millis();
+  for (int i = 0; i < 6; i++) {
+    pinMode(i ,OUTPUT);
+  }
 
+  
+
+
+
+  prev_time = millis();
+  Wire.begin(); // Initialize I2C communication
+  activateSensor ( PH1_ADDR, 0x01);
+  activateSensor ( PH2_ADDR, 0x01);
+  activateSensor ( ORP1_ADDR, 0x01);
+  activateSensor ( ORP2_ADDR, 0x01);
 }
 
 void loop() {
@@ -38,7 +52,7 @@ void loop() {
     if (!err && doc.containsKey("pwm")) {
       JsonArray pwmArray = doc["pwm"];
       for (int i = 0; i < pwmArray.size(); i++) {
-        analogWrite(motorPins[i], pwmArray[i]);
+        analogWrite(motorPins[i], int(double(pwmArray[i])*2.55));
       }
     }
   }
@@ -59,6 +73,11 @@ void loop() {
   for (int i = 0; i < 6; i++) {
     TMP_data.add(analogRead(i));
   }
+
+  PH_1 = readPHValue (PH1_ADDR);
+  PH_2 = readPHValue (PH2_ADDR);
+  ORP_1 = readORPValue(ORP1_ADDR);
+  ORP_2 = readORPValue (ORP2_ADDR);
 
   JsonArray PH_data = root.createNestedArray ("PH_data");
   PH_data.add (PH_1);

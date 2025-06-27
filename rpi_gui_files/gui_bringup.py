@@ -8,7 +8,10 @@ import numpy as np
 import csv
 from datetime import datetime
 
-ser = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+PORT = '/dev/ttyACM0'  # Update this to your serial port
+
+
+ser = serial.Serial(PORT, 9600, timeout=1)
 root = tk.Tk()
 root.title("JSON Sensor Monitor & PWM Sender")
 

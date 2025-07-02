@@ -29,13 +29,13 @@ double INLET_DUTY_1 = 0.0 ;
 double INLET_DUTY_2 = 0.0 ;
 double KI_EFFLUENT_1 = 0.0;
 double KI_EFFLUENT_2 = 0.0;
-double KI_INLET_1 = 0.0;
-double KI_INLET_2 = 0.0;
+double KI_INLET_1 = 2.0;
+double KI_INLET_2 = 2.0;
 
 double currentPWMValues[8] = {0,0,0,0,0,0,0,0};
 
 int prev_time; 
-int SAVE_INTERVAL = 180000;
+int SAVE_INTERVAL = 10000;
 
 void setup() {
   Serial.begin(9600);
@@ -47,9 +47,8 @@ void setup() {
     pinMode(i ,OUTPUT);
   }
 
-  
-
-
+  pinMode (FLOAT_SWITCH_PIN_1, INPUT_PULLUP);
+  pinMode (FLOAT_SWITCH_PIN_2, INPUT_PULLUP);
 
   prev_time = millis();
   Wire.begin(); // Initialize I2C communication
@@ -82,9 +81,9 @@ void loop() {
   int FLOAT_SWITCH_STATE_1 = digitalRead(FLOAT_SWITCH_PIN_1);
   int FLOAT_SWITCH_STATE_2 = digitalRead(FLOAT_SWITCH_PIN_2);
   if (FLOAT_SWITCH_STATE_1 == HIGH){
-    EFFLUENT_DUTY_1 = min (1, EFFLUENT_DUTY_1 + KI_EFFLUENT_1);
-    EFFLUENT_DUTY_2 = min (1, EFFLUENT_DUTY_2 + KI_EFFLUENT_1);
-    EFFLUENT_DUTY_3 = min (1, EFFLUENT_DUTY_3 + KI_EFFLUENT_1);
+    EFFLUENT_DUTY_1 = min (100, EFFLUENT_DUTY_1 + KI_EFFLUENT_1);
+    EFFLUENT_DUTY_2 = min (100, EFFLUENT_DUTY_2 + KI_EFFLUENT_1);
+    EFFLUENT_DUTY_3 = min (100, EFFLUENT_DUTY_3 + KI_EFFLUENT_1);
 
     INLET_DUTY_1 = max (0, INLET_DUTY_1 - KI_INLET_1);
   }
@@ -97,9 +96,9 @@ void loop() {
   }
 
   if (FLOAT_SWITCH_STATE_2 == HIGH){
-    EFFLUENT_DUTY_4 = min (1, EFFLUENT_DUTY_4 + KI_EFFLUENT_2);
-    EFFLUENT_DUTY_5 = min (1, EFFLUENT_DUTY_5 + KI_EFFLUENT_2);
-    EFFLUENT_DUTY_6 = min (1, EFFLUENT_DUTY_6 + KI_EFFLUENT_2);
+    EFFLUENT_DUTY_4 = min (100, EFFLUENT_DUTY_4 + KI_EFFLUENT_2);
+    EFFLUENT_DUTY_5 = min (100, EFFLUENT_DUTY_5 + KI_EFFLUENT_2);
+    EFFLUENT_DUTY_6 = min (100, EFFLUENT_DUTY_6 + KI_EFFLUENT_2);
 
     INLET_DUTY_2 = max (0, INLET_DUTY_2 - KI_INLET_2);
   }
@@ -108,7 +107,7 @@ void loop() {
     EFFLUENT_DUTY_5 = max (0, EFFLUENT_DUTY_5 - KI_EFFLUENT_2);
     EFFLUENT_DUTY_6 = max (0, EFFLUENT_DUTY_6 - KI_EFFLUENT_2);
 
-    INLET_DUTY_2 = min (1, INLET_DUTY_2 + KI_INLET_2);
+    INLET_DUTY_2 = min (100, INLET_DUTY_2 + KI_INLET_2);
   }
 
   analogWrite(motorPins[0], EFFLUENT_DUTY_1 * 255);

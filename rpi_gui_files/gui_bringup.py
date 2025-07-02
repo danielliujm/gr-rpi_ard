@@ -32,15 +32,15 @@ csv_writer.writerow(["Timestamp", *[f"TMP(kpa) {i+1}" for i in range(NUM_TMP)],
                      *[f"Motor{i+1}" for i in range(PWM_CHANNELS)]])
 
 
-
-
-
 TMP_values = [tk.StringVar(value="--") for _ in range(NUM_TMP)]
 PH_values = [tk.StringVar(value="--") for _ in range(NUM_PH)]
 ORP_values = [tk.StringVar(value="--") for _ in range(NUM_ORP)]
 
 pwm_entries = []
 pwm_vars = [tk.StringVar(value="0") for _ in range(PWM_CHANNELS)]
+
+editing_pwm = [False for _ in range(PWM_CHANNELS)]
+
 
 def send_pwm():
     
@@ -73,7 +73,8 @@ def read_serial():
 
                 if "pwm_output" in data:
                     for i in range(len(data["pwm_output"])):
-                        pwm_vars[i].set(str(data["pwm_output"][i]))
+                        if not editing_pwm[i]:
+                            pwm_vars[i].set(str(data["pwm_output"][i]))
 
                 if  ("log" in data and data["log"] == "on"):
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -95,6 +96,13 @@ def ESTOP():
     except Exception as e:
         print(f"E-STOP error: {e}")
 
+def make_focus_handlers(index):
+    def on_focus_in(event):
+        editing_pwm[index] = True
+    def on_focus_out(event):
+        editing_pwm[index] = False
+    return on_focus_in, on_focus_out
+
 for i in range(NUM_TMP):
     ttk.Label(root, text=f"TMP {i+1}:").grid(row=i, column=0)
     ttk.Label(root, textvariable=TMP_values[i]).grid(row=i, column=1)
@@ -108,11 +116,23 @@ for i in range(NUM_ORP):
     ttk.Label(root, textvariable=ORP_values[i]).grid(row=i + NUM_TMP + NUM_PH, column=1)
 
 
-for i in range(PWM_CHANNELS):
+for i in range(6):
     ttk.Label(root, text=f"PWM {i+1}:").grid(row=i, column=2)
     entry = ttk.Entry(root, width=5, textvariable=pwm_vars[i])
+    on_in, on_out = make_focus_handlers(i)
+    entry.bind("<FocusIn>", on_in)
+    entry.bind("<FocusOut>", on_out)
     # entry.insert(0, "0")
     entry.grid(row=i, column=3)
+    pwm_entries.append(entry)
+
+for i in range(2):
+    ttk.Label(root, text=f"Inlet {i+1}:").grid(row=i+6, column=2)
+    entry = ttk.Entry(root, width=5, textvariable=pwm_vars[i+6])
+    on_in, on_out = make_focus_handlers(i)
+    entry.bind("<FocusIn>", on_in)
+    entry.bind("<FocusOut>", on_out)
+    entry.grid(row=i+6, column=3)
     pwm_entries.append(entry)
 
 root.bind ('<Return>', lambda event: send_pwm())

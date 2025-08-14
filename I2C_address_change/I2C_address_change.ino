@@ -1,9 +1,9 @@
 #include <Wire.h>
 
-byte DEFAULT_ADDR = 0x68;
+byte DEFAULT_ADDR = 0x66;
 byte UNLOCK_REG = 0x02;
 byte ADDR_REG = 0x03;
-byte NEW_ADDR = 0x66;
+byte NEW_ADDR = 0x68;
 
 void setup(){
     Serial.begin(9600);

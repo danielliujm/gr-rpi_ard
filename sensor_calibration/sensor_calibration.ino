@@ -25,12 +25,17 @@ void setup(){
     // int code = confirmCalibration(PH2_ADDR);
     // Serial.print ("Calibration status: ");
     // Serial.println(code);
+    
+    
+   // activateSensor(ORP2_ADDR, 0x01); // 
 
-    activateSensor(ORP2_ADDR, 0x01); // 
+
+    delay (2000);
+    Serial.println ("activating sensor");
 
     // //Do calibration after reading stablizes 
-    // sendORPCalibrationValues(ORP2_ADDR, 400.0f); 
-    // requestCalibration (ORP1_ADDR, 1);
+    sendORPCalibrationValues(ORP2_ADDR, 200.0f); 
+    requestCalibration (ORP2_ADDR, 2);
     delay (1000);
     int code = confirmCalibration(ORP2_ADDR);
     Serial.print ("Calibration status: ");
@@ -41,11 +46,11 @@ void setup(){
 
 void loop(){
 
-    uint8_t new_reading = readRegister(ORP1_ADDR, 0x07);
-    if (new_reading == 0x01) {
-        Serial.println("New reading available");
-        writeRegister(ORP2_ADDR, 0x07, 0x00); // Clear the new reading flag
-    }
+    // uint8_t new_reading = readRegister(ORP2_ADDR, 0x07);
+    // if (new_reading == 0x01) {
+    //     Serial.println("New reading available");
+    //     writeRegister(ORP2_ADDR, 0x07, 0x00); // Clear the new reading flag
+    // }
     
     float value = readORPValue(ORP2_ADDR);
     Serial.print("ORP Value ");
@@ -57,3 +62,5 @@ void loop(){
     // activateSensor(ORP1_ADDR, 0x00); // Hibernate ORP sensor 2
 
 }
+
+ 

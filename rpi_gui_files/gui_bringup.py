@@ -40,7 +40,7 @@ PH_values = [tk.StringVar(value="--") for _ in range(NUM_PH)]
 ORP_values = [tk.StringVar(value="--") for _ in range(NUM_ORP)]
 
 pwm_entries = []
-
+pwm_vars = [tk.StringVar(value="0") for _ in range(PWM_CHANNELS)]
 
 def send_pwm():
     
@@ -70,11 +70,17 @@ def read_serial():
                 if "ORP_data" in data:
                     for i in range(len(data["ORP_data"])):
                         ORP_values[i].set(data["ORP_data"][i])
+
+                if "pwm_output" in data:
+                    for i in range(len(data["pwm_output"])):
+                        pwm_vars[i].set(str(data["pwm_output"][i]))
+
                 if  ("log" in data and data["log"] == "on"):
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     row = row = [timestamp] + data["TMP_data"] + data["PH_data"] + data["ORP_data"] + [int(entry.get()) for entry in pwm_entries]
                     csv_writer.writerow(row)
                     log_file.flush()
+                
         except Exception as e:
             print(f"Serial read error: {e}")
         time.sleep(0.1)
@@ -104,8 +110,8 @@ for i in range(NUM_ORP):
 
 for i in range(PWM_CHANNELS):
     ttk.Label(root, text=f"PWM {i+1}:").grid(row=i, column=2)
-    entry = ttk.Entry(root, width=5)
-    entry.insert(0, "0")
+    entry = ttk.Entry(root, width=5, textvariable=pwm_vars[i])
+    # entry.insert(0, "0")
     entry.grid(row=i, column=3)
     pwm_entries.append(entry)
 

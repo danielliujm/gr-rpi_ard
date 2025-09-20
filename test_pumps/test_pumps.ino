@@ -53,7 +53,7 @@ void setup()
   stepper_driver_2.enableCoolStep();
   stepper_driver_2.enable();
   
-  stepper_driver_3.setup (Serial3);
+  stepper_driver_3.setup (Serial2);
   stepper_driver_3.setRunCurrent(RUN_CURRENT_PERCENT);
   stepper_driver_3.enableCoolStep();
   stepper_driver_3.enable();
@@ -88,9 +88,9 @@ void setup()
     delay (10);
   stepper_driver_4.moveAtVelocity(2*RUN_VELOCITY);
     delay (10);
-  stepper_driver_5.moveAtVelocity(3*RUN_VELOCITY);
+  stepper_driver_5.moveAtVelocity(2*RUN_VELOCITY);
     delay (10);
-  stepper_driver_6.moveAtVelocity(4*RUN_VELOCITY);
+  stepper_driver_6.moveAtVelocity(2*RUN_VELOCITY);
     delay (10);
 }
 

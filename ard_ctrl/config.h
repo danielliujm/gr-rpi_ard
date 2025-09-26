@@ -72,4 +72,7 @@ SoftwareSerial port6(RX_PIN_6, TX_PIN_6);
 const int RUN_CURRENT_PERCENT = 100; // Set the run current to 100% of the maximum
 
 
-const int SPEED = 100;
+const int SPEED = 5;
+const int32_t STEP_CT = 6000;//60000; // steps per second for 100% speed
+
+const int TMP_pins[] = {5,4,3,0,1,2};

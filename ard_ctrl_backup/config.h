@@ -29,7 +29,7 @@ double KI_INLET_2 = 2.0;
 double currentPWMValues[8] = {0,0,0,0,0,0,0,0};
 
 int prev_time; 
-const int32_t SAVE_INTERVAL = 180000;
+const int32_t SAVE_INTERVAL = 10000; // save log every 10 seconds
 
 
 const int TX_PIN_1 = 30;
@@ -56,9 +56,14 @@ const int RX_PIN_6 = 53;
 
 const int32_t RUN_VELOCITY = 40000;
 
-
-TMC2209 stepper_driver_1, stepper_driver_2, stepper_driver_3, stepper_driver_4, stepper_driver_5, stepper_driver_6;
 TMC2209 stepper_drivers[6] = {};
+TMC2209 stepper_driver_1, stepper_driver_2, stepper_driver_3, stepper_driver_4, stepper_driver_5, stepper_driver_6;
+stepper_drivers[0] = stepper_driver_1;
+stepper_drivers[1] = stepper_driver_2;
+stepper_drivers[2] = stepper_driver_3;                  
+stepper_drivers[3] = stepper_driver_4;
+stepper_drivers[4] = stepper_driver_5;
+stepper_drivers[5] = stepper_driver_6;
 
 SoftwareSerial port1 (RX_PIN_1, TX_PIN_1);
 SoftwareSerial port3(RX_PIN_3, TX_PIN_3);
@@ -73,7 +78,7 @@ SoftwareSerial port6(RX_PIN_6, TX_PIN_6);
 const int RUN_CURRENT_PERCENT = 100; // Set the run current to 100% of the maximum
 
 
-const int SPEED = 5;
+const int SPEED = 100;
 const int32_t STEP_CT = 60000;//60000; // steps per second for 100% speed
 
 const int TMP_pins[] = {5,4,3,0,1,2};

@@ -19,12 +19,61 @@ The port could be ``/dev/ttyACM0`` or ``/dev/ttyACM1``, check which port the ard
 arduino-cli board list
 ```
 
+### Note about SSH, TMUX, and screen
+Connect remotely to the rpi with 
+```
+ssh gr@35.3.220.41
+```
+password is the login password to the rpi. 
+
+
+**tmux** allows for multiple shells and processes to be ran. The processes will still run even after logging off from you ssh client. 
+Launch tmux server with 
+```
+tmux
+```
+a tmux server should already be running the web based gui, check the existing servers with 
+``` 
+tmux ls
+```
+attach to the server with 
+```
+tmux a
+```
+some useful commands :
+
+creating a new panel within tmux server
+```
+ctrl b + c
+```
+switching to another panel 
+```
+ctrl b + panel number
+```
+close panel 
+```
+ctrl b + x
+```
+kill a server 
+```
+tmux kill-session
+```
+
+
 ### Running the GUI 
+To run the GUI with default config
 ```
 cd gr_rpi_ard
-python3 rpi_gui_files/gui_bringup.py
+python3 rpi_gui_files/web_based_gui.py
 ```
-Change the port name in gui_bringup.py accordingly. 
+To run the GUI with custom ports/baud rate/camera/HTTP port :
+```
+PORT = /your/port BAUD=9600 CAM=0 HTTP_PORT=5000 python3 rpi_gui_files/web_based_gui.py
+```
+Accessing the GUI : \
+Connect to MWireless and access http://35.3.220.41:5000/  Change 5000 to your HTTP_PORT
+
+
 
 ### Calibrating PH and ORP sensors 
 Calibration of the PH and ORP sensors consist of the following steps (in sensor_calibration/sensor_calibration.ino)

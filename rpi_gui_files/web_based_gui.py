@@ -4,11 +4,15 @@ import json
 import threading
 import queue
 import time
-from datetime import datetime
+from datetime import datetime, date
 
 from flask import Flask, Response, request, jsonify, render_template_string
 import serial
 import cv2
+
+import csv
+import numpy as np
+
 
 # ---------------------- Configuration ----------------------
 SER_PORT = os.getenv("PORT", "/dev/ttyACM0")  # e.g., "COM3" on Windows
@@ -19,6 +23,9 @@ HTTP_PORT = int(os.getenv("HTTP_PORT", "5000"))
 
 # PWM channels shown in the UI (adjust as needed)
 PWM_CHANNELS = int(os.getenv("PWM_CHANNELS", "8"))
+NUM_TMP = 6
+NUM_PH = 2
+NUM_ORP = 2
 
 # ---------------------- Globals ----------------------------
 app = Flask(__name__)
@@ -29,7 +36,45 @@ sensor_q = queue.Queue(maxsize=500)
 latest_json = {}
 running = True
 
+
+# ---------------------- File saving -------------------------
+log_file = open("data/data_log.csv", "w", newline='')
+csv_writer = csv.writer(log_file)
+
+csv_writer.writerow(["Timestamp", *[f"TMP(kpa) {i+1}" for i in range(NUM_TMP)],
+                     *[f"PH{i+1}" for i in range(NUM_PH)],
+                     *[f"ORP{i+1}" for i in range(NUM_ORP)],
+                     *[f"Motor{i+1}" for i in range(PWM_CHANNELS)]])
+
+log_dir = "data"
+os.makedirs(log_dir, exist_ok=True)
+
+current_date = date.today()
+log_filename = os.path.join(log_dir, f"data_log_{current_date}.csv")
+log_file = open(log_filename, "w", newline='')
+csv_writer = csv.writer(log_file)
+
+# Write header
+csv_writer.writerow(["Timestamp", *[f"TMP(kpa) {i+1}" for i in range(NUM_TMP)],
+                     *[f"PH{i+1}" for i in range(NUM_PH)],
+                     *[f"ORP{i+1}" for i in range(NUM_ORP)],
+                     *[f"Motor{i+1}" for i in range(PWM_CHANNELS)]])
+
 # ---------------------- Serial I/O -------------------------
+def check_log_rotation():
+    global current_date, log_file, csv_writer
+    new_date = date.today()
+    if new_date != current_date:
+        log_file.close()
+        current_date = new_date
+        log_filename = os.path.join(log_dir, f"data_log_{current_date}.csv")
+        log_file = open(log_filename, "w", newline='')
+        csv_writer = csv.writer(log_file)
+        csv_writer.writerow(["Timestamp", *[f"TMP(kpa) {i+1}" for i in range(NUM_TMP)],
+                             *[f"PH{i+1}" for i in range(NUM_PH)],
+                             *[f"ORP{i+1}" for i in range(NUM_ORP)],
+                             *[f"Motor{i+1}" for i in range(PWM_CHANNELS)]])
+
 def open_serial():
     global ser
     try:
@@ -68,6 +113,21 @@ def read_serial_forever():
                 continue
             if not line:
                 continue
+
+            try:
+                data = json.loads(line)
+
+                if  ("log" in data and data["log"] == "on"):
+                
+                  check_log_rotation()
+                  timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                  row = row = [timestamp] + convert_TMP(data["TMP_data"]) + data["PH_data"] + data["ORP_data"] + [int(entry) for entry in data["pwm_output"]]
+                  csv_writer.writerow(row)
+                  log_file.flush()
+                  print (f"Logged data at time {timestamp}")
+            except Exception as e:
+              print(f" Error saving to file: {e}")
+              
             # Expecting JSON lines from the device; if it's not JSON, we still pass text
             parsed = None
             try:
@@ -93,39 +153,122 @@ def read_serial_forever():
 cap = None
 cap_lock = threading.Lock()
 
+# def open_camera():
+#     global cap
+#     try:
+#         # Prefer V4L2 on Linux; OpenCV will choose an available backend otherwise
+#         cap = cv2.VideoCapture(CAM_INDEX)
+#         if not cap.isOpened():
+#             print(f"[WARN] Could not open camera index {CAM_INDEX}")
+#             cap = None
+#             return
+#         # # Request reasonable defaults; camera may clamp
+#         # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+#         # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+#         # cap.set(cv2.CAP_PROP_FPS, 30)
+#         # Prefer MJPEG if available
+#         try:
+#             fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+#             cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+#         except Exception:
+#             pass
+#     except Exception as e:
+#         print(f"[WARN] Camera open failed: {e}")
+#         cap = None
 def open_camera():
     global cap
     try:
-        # Prefer V4L2 on Linux; OpenCV will choose an available backend otherwise
-        cap = cv2.VideoCapture(CAM_INDEX)
-        if not cap.isOpened():
-            print(f"[WARN] Could not open camera index {CAM_INDEX}")
-            cap = None
-            return
-        # # Request reasonable defaults; camera may clamp
-        # cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        # cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        # cap.set(cv2.CAP_PROP_FPS, 30)
-        # Prefer MJPEG if available
-        try:
-            fourcc = cv2.VideoWriter_fourcc(*"MJPG")
-            cap.set(cv2.CAP_PROP_FOURCC, fourcc)
-        except Exception:
-            pass
+        with cap_lock:
+            if cap is not None:
+                return
+            cap = cv2.VideoCapture(CAM_INDEX)
+            if not cap.isOpened():
+                print(f"[WARN] Could not open camera index {CAM_INDEX}")
+                cap = None
+                return
+            # Ask for reasonable defaults; device may clamp
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            cap.set(cv2.CAP_PROP_FPS, 30)
+            try:
+                fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+                cap.set(cv2.CAP_PROP_FOURCC, fourcc)
+            except Exception:
+                pass
     except Exception as e:
         print(f"[WARN] Camera open failed: {e}")
-        cap = None
+        with cap_lock:
+            cap = None
+
+  
+def convert_TMP (data):
+  # convert bits to voltage:
+  
+  data_psi_arr = []
+  data_arr = np.array(data)
+  voltage_range = 4
+  for data in data_arr:
+    # print (f'raw data is{data}')
+    voltage = int(data) * 5.0/1023.0
+    data_psi = -15 + (voltage - 1)/voltage_range * 45
+    data_psi_arr.append (data_psi)
+
+  return data_psi_arr
+
+
+# def gen():
+#         while True:
+#             ok, frame = cap.read()
+#             if not ok:
+#                 continue
+#             ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+#             if not ok:
+#                 continue
+#             jpg = buf.tobytes()
+#             yield (b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
+#                    + str(len(jpg)).encode() + b"\r\n\r\n" + jpg + b"\r\n")
+
 def gen():
-        while True:
-            ok, frame = cap.read()
-            if not ok:
-                continue
-            ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-            if not ok:
-                continue
-            jpg = buf.tobytes()
-            yield (b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: "
-                   + str(len(jpg)).encode() + b"\r\n\r\n" + jpg + b"\r\n")
+    """Resilient MJPEG generator: handles cap=None and read failures."""
+    global cap
+    while True:
+        # If camera isn't open yet, try to (re)open and wait briefly
+        if cap is None:
+            open_camera()
+            time.sleep(0.2)
+            continue
+
+        # Read a frame safely
+        try:
+            with cap_lock:
+                ok, frame = cap.read()
+        except Exception:
+            # Something went wrong; reset and retry
+            with cap_lock:
+                try:
+                    if cap:
+                        cap.release()
+                except Exception:
+                    pass
+                cap = None
+            time.sleep(0.2)
+            continue
+
+        if not ok or frame is None:
+            # Camera returned no frame; brief backoff and retry
+            time.sleep(0.02)
+            continue
+
+        ok, buf = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+        if not ok:
+            continue
+
+        jpg = buf.tobytes()
+        yield (b"--frame\r\n"
+               b"Content-Type: image/jpeg\r\n"
+               b"Content-Length: " + str(len(jpg)).encode() + b"\r\n\r\n" +
+               jpg + b"\r\n")
+
 
 # ---------------------- Flask Routes -----------------------
 INDEX_HTML = r"""
@@ -168,6 +311,12 @@ INDEX_HTML = r"""
   </section>
 
   <section class="card">
+    <h2>Alerts</h2>
+    <pre id="raw-serial" style="background:#111;color:#0f0;padding:.6rem;border-radius:8px;height:200px;overflow:auto;"></pre>
+    <div class="muted">Text not in any Json object gets shown here</div>
+  </section>
+
+  <section class="card">
     <h2>ORP</h2>
     <table><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody id="orp-body"></tbody></table>
   </section>
@@ -199,6 +348,22 @@ INDEX_HTML = r"""
     <div class="muted">Sends JSON like <code>{"pwm":[...]}</code> and <code>{"estop":true}</code> to the device.</div>
   </section>
 
+  <section class="card">
+    <h2>Calibration</h2>
+    <div class="actions" style="flex-wrap:wrap; gap:.5rem;">
+      <button id="cal-mode-btn">Enter calibration mode</button>
+      <button id="btn-ph1">PH1</button>
+      <button id="btn-ph2">PH2</button>
+      <button id="btn-orp1">ORP1</button>
+      <button id="btn-orp2">ORP2</button>
+    </div>
+    <div style="margin-top:.8rem;">
+      <label for="cal-input" style="display:block;margin-bottom:.25rem;">Calibration value</label>
+      <input id="cal-input" type="text" placeholder="e.g. 7.0" />
+      <button id="cal-send">Send value</button>
+    </div>
+  </section>
+
   <section class="card" style="grid-column: 1 / -1;">
     <h2>Other Data</h2>
     <table><thead><tr><th>Key</th><th>Value</th></tr></thead><tbody id="other-body"></tbody></table>
@@ -208,6 +373,68 @@ INDEX_HTML = r"""
 
 <script>
 const PWM_CHANNELS = {{pwm_channels}};
+
+let calMode = false;
+
+async function sendCalPayload(obj) {
+  try {
+    const r = await fetch('/cal', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(obj)
+    });
+    const j = await r.json();
+    setStatus(j.ok ? 'Calibration cmd sent' : ('Error: ' + (j.error || 'unknown')));
+    return j.ok;
+  } catch (e) {
+    setStatus('Network error sending calibration cmd');
+    return false;
+  }
+}
+
+async function toggleCalMode() {
+  const next = !calMode;
+  const ok = await sendCalPayload({ "Calibration": next ? "true" : "false" });
+  if (ok) {
+    calMode = next;
+    document.getElementById('cal-mode-btn').textContent =
+      calMode ? 'Exit calibration mode' : 'Enter calibration mode';
+  }
+}
+
+function selectSensor(name) {
+  return sendCalPayload({ "sensor_select": name });
+}
+
+function sendCalValue() {
+  const val = (document.getElementById('cal-input').value || '').trim();
+  if (!val) {
+    setStatus('Enter a calibration value first');
+    return;
+  }
+  return sendCalPayload({ "cal_value": val });
+}
+
+// Hook up listeners after DOM load
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('cal-mode-btn').addEventListener('click', toggleCalMode);
+  document.getElementById('btn-ph1').addEventListener('click', () => selectSensor('PH1'));
+  document.getElementById('btn-ph2').addEventListener('click', () => selectSensor('PH2'));
+  document.getElementById('btn-orp1').addEventListener('click', () => selectSensor('ORP1'));
+  document.getElementById('btn-orp2').addEventListener('click', () => selectSensor('ORP2'));
+  document.getElementById('cal-send').addEventListener('click', sendCalValue);
+});
+
+function tmpRawToPsi(x) {
+  const n = Number(x);
+  if (Number.isNaN(n)) return x;
+  // default assumes raw is kPa; convert to psi
+  voltage_range = 4
+  voltage = x * 5.0/1023.0
+  data_psi = -15 + (voltage - 1)/voltage_range * 45
+  data_psi = data_psi.toFixed(3)
+  return data_psi;
+}
 
 function putRow(tbodyId, key, val) {
   const body = document.getElementById(tbodyId);
@@ -239,20 +466,23 @@ function renderPanels(obj) {
   const pwmout = obj.PWM_outputs ?? obj.pwm_output ?? obj.pwm_out ?? obj.pwmOut;
 
   // helper to expand arrays, objects or scalars
-  const expand = (prefix, val, tbodyId) => {
+
+  const expand = (prefix, val, tbodyId, transformFn) => {
+    const apply = (v) => (transformFn ? transformFn(v) : v);
     if (val === undefined) return;
     if (Array.isArray(val)) {
-      val.forEach((v, i) => putRow(tbodyId, `${prefix}[${i}]`, v));
+      val.forEach((v, i) => putRow(tbodyId, `${prefix}[${i}]`, apply(v)));
     } else if (val && typeof val === 'object') {
-      Object.keys(val).forEach(k => putRow(tbodyId, `${prefix}.${k}`, val[k]));
+      Object.keys(val).forEach(k => putRow(tbodyId, `${prefix}.${k}`, apply(val[k])));
     } else {
-      putRow(tbodyId, prefix, val);
+      putRow(tbodyId, prefix, apply(val));
     }
   };
 
+
   expand('PH', ph, 'ph-body');
   expand('ORP', orp, 'orp-body');
-  expand('TMP', tmp, 'tmp-body');
+  expand('TMP', tmp, 'tmp-body', tmpRawToPsi);
   expand('PWM_outputs', pwmout, 'pwmout-body');
 
   // Everything else goes to Other
@@ -316,6 +546,20 @@ async function estop() {
   }
 }
 
+function appendRaw(line) {
+  const pre = document.getElementById('raw-serial');
+  if (!pre) return;
+  pre.textContent += line + "\n";
+  pre.scrollTop = pre.scrollHeight;
+}
+
+function showRaw(line){
+  const div = document.getElementById('raw-serial');
+  if (!div) return;
+  div.textContent = line;
+}
+
+
 function startSSE() {
   const es = new EventSource('/events');
   es.onmessage = (ev) => {
@@ -323,6 +567,9 @@ function startSSE() {
       const payload = JSON.parse(ev.data);
       if (payload.data && typeof payload.data === 'object') {
         renderPanels(payload.data);
+      }
+      else if (payload.text) {
+        showRaw(payload.text);
       }
     } catch (e) {}
   };
@@ -367,6 +614,19 @@ def events():
             item = sensor_q.get()
             yield f"data: {json.dumps(item)}\n\n"
     return Response(gen(), mimetype="text/event-stream")
+
+@app.route("/cal", methods=["POST"])
+def cal():
+    try:
+        body = request.get_json(force=True, silent=False)
+        if not isinstance(body, dict) or not body:
+            return jsonify(ok=False, error="Expected a JSON object with a key/value"), 400
+        ok, err = write_serial_line(json.dumps(body))
+        return jsonify(ok=ok, error=err if not ok else "")
+    except Exception as e:
+        return jsonify(ok=False, error=str(e)), 400
+
+
 
 @app.route("/pwm", methods=["POST"])
 def pwm():
